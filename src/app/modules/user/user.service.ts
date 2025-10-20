@@ -8,8 +8,9 @@ import { userSearchableFields } from "./user.constant";
 import { email } from "zod";
 
 const createPatient = async (req: Request) => {
-  if (req.file) {
-    const uploadedResult = await fileUploader.uploadToCloudinary(req.file);
+  const file = req.file;
+  if (file) {
+    const uploadedResult = await fileUploader.uploadToCloudinary(file);
     req.body.patient.profilePhoto = uploadedResult?.secure_url;
   }
   const hashPassword = await bcrypt.hash(req.body.password, 10);

@@ -2,6 +2,7 @@ import { addHours, addMinutes, format } from "date-fns";
 import { prisma } from "../../shared/prisma";
 import { IOptions, paginationHelper } from "../../helpers/paginationHelpers";
 import { Prisma } from "@prisma/client";
+import { IJwtPayload } from "../../types/common";
 
 const createSchedule = async (payload: any) => {
   const { startDate, endDate, startTime, endTime } = payload;
@@ -63,7 +64,11 @@ const createSchedule = async (payload: any) => {
   return schedules;
 };
 
-const schedulesForDoctor = async (filters: any, options: IOptions) => {
+const schedulesForDoctor = async (
+  user: IJwtPayload,
+  filters: any,
+  options: IOptions
+) => {
   const { page, limit, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
   const { startDateTime: filterStartDateTime, endDateTime: filterEndDateTime } =
@@ -94,10 +99,29 @@ const schedulesForDoctor = async (filters: any, options: IOptions) => {
         }
       : {};
 
+  const doctorSchedules = await prisma.doctorSchedule.findMany({
+    where: {
+      doctor: {
+        email: user.email,
+      },
+    },
+    select: {
+      scheduleId: true,
+    },
+  });
+
+  const doctorSheduleIds = doctorSchedules.map(
+    (schedule) => schedule.scheduleId
+  );
   const result = await prisma.schedule.findMany({
+    where: {
+      ...whereConditions,
+      id: {
+        notIn: doctorSheduleIds,
+      },
+    },
     skip,
     take: limit,
-    where: whereConditions,
 
     orderBy: {
       [sortBy]: sortOrder,
@@ -105,7 +129,12 @@ const schedulesForDoctor = async (filters: any, options: IOptions) => {
   });
 
   const total = await prisma.schedule.count({
-    where: whereConditions,
+    where: {
+      ...whereConditions,
+      id: {
+        notIn: doctorSheduleIds,
+      },
+    },
   });
 
   return {
